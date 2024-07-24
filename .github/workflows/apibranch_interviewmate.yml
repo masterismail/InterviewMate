@@ -1,3 +1,7 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+# More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
+
 name: Build and deploy Python app to Azure Web App - InterviewMate
 
 on:
@@ -5,10 +9,6 @@ on:
     branches:
       - apibranch
   workflow_dispatch:
-
-env:
-  PYTHON_VERSION: '3.10'
-  APP_NAME: 'InterviewMate'
 
 jobs:
   build:
@@ -20,31 +20,28 @@ jobs:
       - name: Set up Python version
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          python-version: '3.10'
 
       - name: Create and start virtual environment
         run: |
           python -m venv venv
           source venv/bin/activate
-
+      
       - name: Install dependencies
         run: pip install -r requirements.txt
+        
+      # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
       - name: Zip artifact for deployment
-        run: zip -r release.zip .
+        run: zip release.zip ./* -r
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: release.zip
+          path: |
+            release.zip
+            !venv/
 
   deploy:
     runs-on: ubuntu-latest
@@ -53,7 +50,7 @@ jobs:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
-      id-token: write
+      id-token: write #This is required for requesting the JWT
 
     steps:
       - name: Download artifact from build job
@@ -62,32 +59,20 @@ jobs:
           name: python-app
 
       - name: Unzip artifact for deployment
-        run: |
-          unzip release.zip
-          mkdir app
-          mv * app/ || true
-          cd app
+        run: unzip release.zip
 
+      
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_5DF0714E93954EF4B0A77A75DFB1EF48 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B187656150C84D549BC4E1445C91EE98 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_7D94DC64223541FEA49237FF5A201C3A }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2CDF14F371A04A7A811C814F563EBEA0 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_95036A9BE2554BF1BAC752C31EC96CC5 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_56927FF0D84B42E7AC2EC62DFA463DBC }}
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
-          app-name: ${{ env.APP_NAME }}
+          app-name: 'InterviewMate'
           slot-name: 'Production'
-
-      - name: Log deployment result
-        if: always()
-        run: |
-          if [ "${{ steps.deploy-to-webapp.outcome }}" == "success" ]; then
-            echo "Deployment successful"
-          else
-            echo "Deployment failed"
-            exit 1
-          fi
+          
