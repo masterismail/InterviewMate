@@ -29,14 +29,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd my_api_app
           pip install -r requirements.txt
 
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
       - name: Zip artifact for deployment
         run: |
-          cd my_api_app
           zip -r ../release.zip .
 
       - name: Upload artifact for deployment jobs
