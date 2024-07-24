@@ -62,13 +62,18 @@ def take_description():
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are an interviewer who is skilled at conducting interviews based on the description provided."},
-                {"role": "user", "content": f"Based on the description '{description}', provide the top 5 questions to start an interview."}
+                {"role": "user", "content": f"Based on the description '{description}', provide the top 5 questions to start an interview. Format each question as 'Question X: [The question]'."}
             ]
         )
 
-        return jsonify({
-            'questions': response.choices[0].message.content
-        })
+        questions = response.choices[0].message.content.split('\n')
+        formatted_questions = {}
+        for question in questions:
+            if ':' in question:
+                key, value = question.split(':', 1)
+                formatted_questions[key.strip()] = value.strip()
+
+        return jsonify(formatted_questions)
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -85,32 +90,35 @@ def new_questions():
 
     conversations = data['conversations']
 
-    # Map roles to OpenAI's supported values
     role_mapping = {
         "interviewer": "user",
         "applicant": "assistant"
     }
 
-    # Ensure conversations is a list of dicts with 'role' and 'text'
     if not isinstance(conversations, list) or any('role' not in item or 'text' not in item for item in conversations):
         return jsonify({'error': 'Invalid input format'}), 400
 
     try:
         messages = [{"role": "system", "content": "You are an interviewer with context from the following conversation."}]
         for conversation in conversations:
-            role = role_mapping.get(conversation['role'], "user")  # Default to "user" if role is unknown
+            role = role_mapping.get(conversation['role'], "user")
             messages.append({"role": role, "content": conversation['text']})
 
         response = client.chat.completions.create(
             model="gpt-4",
             messages=messages + [
-                {"role": "user", "content": "Based on the given context, provide additional questions to ask in this interview."}
+                {"role": "user", "content": "Based on the given context, provide 5 additional questions to ask in this interview. Format each question as 'Question X: [The question]'."}
             ]
         )
 
-        return jsonify({
-            'questions': response.choices[0].message.content
-        })
+        questions = response.choices[0].message.content.split('\n')
+        formatted_questions = {}
+        for question in questions:
+            if ':' in question:
+                key, value = question.split(':', 1)
+                formatted_questions[key.strip()] = value.strip()
+
+        return jsonify(formatted_questions)
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -123,35 +131,66 @@ def analyze():
     data = request.get_json()
 
     if not data or 'conversations' not in data:
-        return jsonify({'error': 'Invalid input'}), 400
+        return jsonify({'error': 'Invalid input: conversations missing'}), 400
 
     conversations = data['conversations']
 
-    # Map roles to OpenAI's supported values
     role_mapping = {
         "interviewer": "user",
         "applicant": "assistant"
     }
 
-    # Ensure conversations is a list of dicts with 'role' and 'text'
     if not isinstance(conversations, list) or any('role' not in item or 'text' not in item for item in conversations):
-        return jsonify({'error': 'Invalid input format'}), 400
+        return jsonify({'error': 'Invalid input format: conversations must be a list of dicts with "role" and "text" keys'}), 400
 
     try:
-        messages = [{"role": "system", "content": "You are an interviewer with context from the following conversation. Provide an analysis with the following parameters: overall rating, technical skills, communication, cultural fit, and a summary."}]
+        messages = [{"role": "system", "content": "You are an interviewer analyzing the following conversation. Provide an analysis with four sections: 1) Overall rating, 2) Technical skills, 3) Communication skills, and 4) Cultural fit. For each section, provide a rating out of 10 and a brief comment."}]
         for conversation in conversations:
-            role = role_mapping.get(conversation['role'], "user")  # Default to "user" if role is unknown
+            role = role_mapping.get(conversation['role'], "user")
             messages.append({"role": role, "content": conversation['text']})
 
         response = client.chat.completions.create(
             model="gpt-4",
             messages=messages + [
-                {"role": "user", "content": "Based on the given context, provide an analysis with the following parameters: overall rating, technical skills, communication, cultural fit, and a short summary of 3-4 lines."}
+                {"role": "user", "content": "Please provide the analysis as requested, formatting your response exactly as follows:\nOverall Rating: [X/10]\nOverall Comment: [Your comment here]\nTechnical Skills Rating: [Y/10]\nTechnical Skills Comment: [Your comment here]\nCommunication Skills Rating: [Z/10]\nCommunication Skills Comment: [Your comment here]\nCultural Fit Rating: [W/10]\nCultural Fit Comment: [Your comment here]"}
             ]
         )
 
+        analysis = response.choices[0].message.content
+        lines = analysis.split('\n')
+
+        def extract_rating_and_comment(lines, prefix):
+            rating = "N/A"
+            comment = "No comment provided"
+            for line in lines:
+                if line.startswith(f"{prefix} Rating:"):
+                    rating = line.split(':')[1].strip()
+                elif line.startswith(f"{prefix} Comment:"):
+                    comment = line.split(':', 1)[1].strip()
+            return rating, comment
+
+        overall_rating, overall_comment = extract_rating_and_comment(lines, "Overall")
+        technical_rating, technical_comment = extract_rating_and_comment(lines, "Technical Skills")
+        communication_rating, communication_comment = extract_rating_and_comment(lines, "Communication Skills")
+        cultural_fit_rating, cultural_fit_comment = extract_rating_and_comment(lines, "Cultural Fit")
+
         return jsonify({
-            'analysis': response.choices[0].message.content
+            'overall_rating': {
+                'rating': overall_rating,
+                'comment': overall_comment
+            },
+            'technical_skills': {
+                'rating': technical_rating,
+                'comment': technical_comment
+            },
+            'communication_skills': {
+                'rating': communication_rating,
+                'comment': communication_comment
+            },
+            'cultural_fit': {
+                'rating': cultural_fit_rating,
+                'comment': cultural_fit_comment
+            }
         })
 
     except Exception as e:
