@@ -29,14 +29,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd my-api-app
+          cd my_api_app
           pip install -r requirements.txt
 
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
       - name: Zip artifact for deployment
         run: |
-          cd my-api-app
+          cd my_api_app
           zip -r ../release.zip .
 
       - name: Upload artifact for deployment jobs
@@ -61,7 +61,7 @@ jobs:
           name: python-app
 
       - name: Unzip artifact for deployment
-        run: unzip release.zip -d my-api-app
+        run: unzip release.zip -d my_api_app
 
       - name: Login to Azure
         uses: azure/login@v2
