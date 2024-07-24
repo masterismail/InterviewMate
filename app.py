@@ -2,21 +2,16 @@ from flask import Flask, request, jsonify
 import os
 from openai import OpenAI
 
-from dotenv import load_dotenv
+app = Flask(__name__)
 
-# Load environment variables from .env file
-load_dotenv()
- 
 # Fetch the OpenAI API key from environment variables
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=OPENAI_API_KEY)
 
-if OPENAI_API_KEY is None:
-    raise ValueError("The OpenAI API key is missing. Please set the OPENAI_API_KEY environment variable.")
-
-# Set up OpenAI API key
-
-app = Flask(__name__)
+if OPENAI_API_KEY:
+    client = OpenAI(api_key=OPENAI_API_KEY)
+else:
+    print("Warning: OPENAI_API_KEY is not set. Some functionality may be limited.")
+    client = None
 
 @app.route('/')
 def index():
@@ -24,6 +19,9 @@ def index():
 
 @app.route('/generate-poem', methods=['POST'])
 def generate_poem():
+    if client is None:
+        return jsonify({'error': 'OpenAI client is not configured'}), 500
+
     data = request.get_json()
 
     if not data or 'prompt' not in data:
