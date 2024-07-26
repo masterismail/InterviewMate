@@ -85,10 +85,11 @@ def new_questions():
 
     data = request.get_json()
 
-    if not data or 'conversations' not in data:
+    if not data or 'conversations' not in data or 'description' not in data:
         return jsonify({'error': 'Invalid input'}), 400
 
     conversations = data['conversations']
+    description = data['description']
 
     role_mapping = {
         "interviewer": "user",
@@ -99,7 +100,7 @@ def new_questions():
         return jsonify({'error': 'Invalid input format'}), 400
 
     try:
-        messages = [{"role": "system", "content": "You are an interviewer with context from the following conversation."}]
+        messages = [{"role": "system", "content": f"You are an interviewer conducting an interview based on this description: '{description}'. Use the following conversation as context."}]
         for conversation in conversations:
             role = role_mapping.get(conversation['role'], "user")
             messages.append({"role": role, "content": conversation['text']})
@@ -107,7 +108,7 @@ def new_questions():
         response = client.chat.completions.create(
             model="gpt-4",
             messages=messages + [
-                {"role": "user", "content": "Based on the given context, provide 5 additional questions to ask in this interview. Format each question as 'Question X: [The question]'."}
+                {"role": "user", "content": "Based on the given context and description, provide 5 additional questions to ask in this interview. Format each question as 'Question X: [The question]'."}
             ]
         )
 
@@ -130,10 +131,11 @@ def analyze():
 
     data = request.get_json()
 
-    if not data or 'conversations' not in data:
-        return jsonify({'error': 'Invalid input: conversations missing'}), 400
+    if not data or 'conversations' not in data or 'description' not in data:
+        return jsonify({'error': 'Invalid input: conversations or description missing'}), 400
 
     conversations = data['conversations']
+    description = data['description']
 
     role_mapping = {
         "interviewer": "user",
@@ -144,7 +146,7 @@ def analyze():
         return jsonify({'error': 'Invalid input format: conversations must be a list of dicts with "role" and "text" keys'}), 400
 
     try:
-        messages = [{"role": "system", "content": "You are an interviewer analyzing the following conversation. Provide an analysis with four sections: 1) Overall rating, 2) Technical skills, 3) Communication skills, and 4) Cultural fit. For each section, provide a rating out of 10 and a brief comment."}]
+        messages = [{"role": "system", "content": f"You are an interviewer analyzing the following conversation based on this description: '{description}'. Provide an analysis with four sections: 1) Overall rating, 2) Technical skills, 3) Communication skills, and 4) Cultural fit. For each section, provide a rating out of 10 and a brief comment."}]
         for conversation in conversations:
             role = role_mapping.get(conversation['role'], "user")
             messages.append({"role": role, "content": conversation['text']})
